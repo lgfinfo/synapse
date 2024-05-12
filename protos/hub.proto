@@ -1,0 +1,52 @@
+syntax = "proto3";
+package service_registry;
+
+enum ServiceType{
+  HTTP = 0;
+  HTTPS = 1;
+  GRPC = 2;
+}
+
+message ServiceInstance{
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  int32 port = 4;
+  string version = 5;
+  string health_endpoint = 6;
+  ServiceType type = 7;
+  map<string, string> metadata = 8;
+  repeated string tags = 9;
+  repeated string subscribed_services  = 10;
+}
+
+// gRPC服务接口定义，用于服务注册、注销和查询
+service ServiceRegistry {
+  // 注册服务实例
+  rpc RegisterService(ServiceInstance) returns (OperationStatus);
+  // 注销服务实例
+  rpc UnregisterService(ServiceInstanceIdentifier) returns (OperationStatus);
+  // 查询服务实例
+  rpc QueryServices(QueryRequest) returns (QueryResponse);
+}
+
+// 操作状态定义
+message OperationStatus {
+  bool success = 1; // 操作是否成功
+  string message = 2; // 相关信息或错误消息
+}
+
+// 服务实例标识定义
+message ServiceInstanceIdentifier {
+  string id = 1; // 服务实例唯一标识
+}
+
+// 查询请求定义
+message QueryRequest {
+  string name = 1; // 可以按服务名称查询
+}
+
+// 查询响应定义
+message QueryResponse {
+  repeated ServiceInstance services = 1; // 查询结果，返回服务实例列表
+}
