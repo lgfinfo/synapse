@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -6,11 +7,12 @@ use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
 use tracing::{debug, warn};
 
+use crate::pb::health_client::HealthClient;
 use crate::pb::report_status_client::ReportStatusClient;
 use crate::pb::service_registry_server::ServiceRegistry;
 use crate::pb::{
-    OperationStatus, QueryRequest, QueryResponse, ReportRequest, ServiceActive, ServiceInstance,
-    ServiceInstanceIdentifier,
+    HealthCheckRequest, OperationStatus, QueryRequest, QueryResponse, ReportRequest, ServiceActive,
+    ServiceInstance, ServiceInstanceIdentifier, ServiceStatus,
 };
 
 pub type ServiceInstances = DashMap<ServiceId, ServiceInstance>;
@@ -19,7 +21,7 @@ pub type ServiceName = String;
 
 /// pb hub structure
 /// store the service information
-pub type RegistryPool = DashMap<ServiceName, ServiceInstances>;
+pub type RegistryPool = Arc<DashMap<ServiceName, ServiceInstances>>;
 
 pub type ServiceId = String;
 
@@ -41,7 +43,7 @@ pub struct Hub {
 impl Hub {
     pub fn new() -> Self {
         Self {
-            registry_pool: DashMap::new(),
+            registry_pool: Arc::new(DashMap::new()),
             pub_sub_hub: DashMap::new(),
             reporter: Arc::new(DashMap::new()),
         }
@@ -65,11 +67,42 @@ impl Hub {
         }
     }
 
+    fn modify_service_status(
+        name: &ServiceName,
+        id: &ServiceId,
+        status: ServiceStatus,
+        pool: &RegistryPool,
+    ) -> bool {
+        match pool.get(name) {
+            // service is unregistered
+            None => false,
+            Some(instances) => match instances.get(id) {
+                // service is unregistered
+                None => false,
+                Some(instance) => {
+                    if instance.status != status as i32 {
+                        instances.get_mut(id).unwrap().status = if status == ServiceStatus::Down {
+                            ServiceStatus::Down as i32
+                        } else {
+                            ServiceStatus::Up as i32
+                        };
+                        // todo notify the subscribers
+                    }
+                    true
+                }
+            },
+        }
+    }
     pub fn register_reporter(&self, instance: &ServiceInstance) {
         let reporters = self.reporter.clone();
         let cloned_id = instance.id.clone();
         let addr = format!("http://{}:{}", &instance.address, &instance.port);
+        let pool = self.registry_pool.clone();
+        let check = instance.health_check.clone();
+        let id = instance.id.clone();
+        let name = instance.name.clone();
         tokio::spawn(async move {
+            // todo use timeout instead of loop
             for i in 0..5 {
                 if let Ok(channel) = Channel::from_shared(addr.clone()).unwrap().connect().await {
                     let client = ReportStatusClient::new(channel);
@@ -78,7 +111,35 @@ impl Hub {
                     break;
                 }
                 warn!("connect to service failed, retry: {}", i);
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+            // open health check
+            if let Some(health) = check {
+                let mut tick = tokio::time::interval(Duration::from_secs(health.interval as u64));
+                let mut client = HealthClient::new(
+                    Channel::from_shared(addr.clone())
+                        .unwrap()
+                        .connect()
+                        .await
+                        .unwrap(),
+                );
+                let req = HealthCheckRequest {
+                    service: health.endpoint.clone(),
+                };
+                loop {
+                    tick.tick().await;
+                    let is_pass = match client.check(req.clone()).await {
+                        Ok(_) => Self::modify_service_status(&name, &id, ServiceStatus::Up, &pool),
+                        Err(e) => {
+                            warn!("health check failed: {:?}", e);
+
+                            Self::modify_service_status(&name, &id, ServiceStatus::Down, &pool)
+                        }
+                    };
+                    if !is_pass {
+                        break;
+                    }
+                }
             }
         });
     }
@@ -127,7 +188,7 @@ impl ServiceRegistry for Hub {
         if !instance.subscribed_services.is_empty() {
             self.register_pub_sub(&instance);
 
-            // register reporter
+            // register reporter and open health check
             self.register_reporter(&instance);
         }
 

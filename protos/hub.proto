@@ -27,7 +27,7 @@ enum ServiceStatus{
 }
 
 message HealthCheck{
-  string health_endpoint = 1;
+  string endpoint = 1;
   int32 interval = 2;
   int32 timeout = 3;
   int32 retries = 4;

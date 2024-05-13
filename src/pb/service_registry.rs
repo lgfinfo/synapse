@@ -30,7 +30,7 @@ pub struct ServiceInstance {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HealthCheck {
     #[prost(string, tag = "1")]
-    pub health_endpoint: ::prost::alloc::string::String,
+    pub endpoint: ::prost::alloc::string::String,
     #[prost(int32, tag = "2")]
     pub interval: i32,
     #[prost(int32, tag = "3")]
