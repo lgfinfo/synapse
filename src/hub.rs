@@ -1,11 +1,11 @@
-use async_trait::async_trait;
 use std::sync::Arc;
 
-use crate::core::service_registry_server::ServiceRegistry;
+use async_trait::async_trait;
 use dashmap::DashMap;
 use tonic::{Request, Response, Status};
 
-use crate::core::{
+use crate::pb::service_registry_server::ServiceRegistry;
+use crate::pb::{
     OperationStatus, QueryRequest, QueryResponse, ServiceInstance, ServiceInstanceIdentifier,
 };
 
@@ -13,7 +13,7 @@ pub type ServiceInstances = Arc<Vec<ServiceInstance>>;
 
 pub type ServiceName = String;
 
-/// core hub structure
+/// pb hub structure
 /// store the service information
 pub type RegistryPool = DashMap<ServiceName, ServiceInstances>;
 
@@ -23,13 +23,13 @@ pub type ServiceId = String;
 pub type PubSubHub = DashMap<ServiceName, Vec<Arc<ServiceId>>>;
 
 /// register center
+#[derive(Clone, Debug, Default)]
 pub struct Hub {
     pub registry_pool: RegistryPool,
     pub pub_sub_hub: PubSubHub,
 }
 
 impl Hub {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             registry_pool: DashMap::new(),

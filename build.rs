@@ -49,8 +49,11 @@ impl BuilderExt for tonic_build::Builder {
 }
 fn main() {
     tonic_build::configure()
-        .out_dir("src/core")
-        .compile(&["protos/hub.proto"], &["protos"])
+        .out_dir("src/pb")
+        .compile(
+            &["protos/hub.proto", "protos/health_check.proto"],
+            &["protos"],
+        )
         .unwrap();
 
     // execute cargo fmt command
