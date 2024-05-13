@@ -13,14 +13,18 @@ message ServiceInstance{
   string address = 3;
   int32 port = 4;
   string version = 5;
-  string health_endpoint = 6;
-  ServiceType type = 7;
-  map<string, string> metadata = 8;
-  repeated string tags = 9;
-  repeated string subscribed_services = 10;
+  ServiceType type = 6;
+  map<string, string> metadata = 7;
+  repeated string tags = 8;
+  repeated string subscribed_services = 9;
+  optional HealthCheck health_check = 10;
   // todo 服务状态
 }
 
+message HealthCheck{
+  string health_endpoint = 1;
+  int32 interval = 2;
+}
 // gRPC服务接口定义，用于服务注册、注销和查询
 service ServiceRegistry {
   // 注册服务实例

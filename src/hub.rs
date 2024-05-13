@@ -47,6 +47,42 @@ impl Hub {
         }
     }
 
+    pub fn register_pub_sub(&self, instance: &ServiceInstance) {
+        for name in &instance.subscribed_services {
+            self.pub_sub_hub
+                .entry(name.clone())
+                .or_default()
+                .push(instance.id.clone());
+        }
+    }
+
+    pub fn un_register_pub_sub(&self, instance: &ServiceInstance) {
+        for name in &instance.subscribed_services {
+            self.pub_sub_hub
+                .entry(name.clone())
+                .or_default()
+                .push(instance.id.clone());
+        }
+    }
+
+    pub fn register_reporter(&self, instance: &ServiceInstance) {
+        let reporters = self.reporter.clone();
+        let cloned_id = instance.id.clone();
+        let addr = format!("http://{}:{}", &instance.address, &instance.port);
+        tokio::spawn(async move {
+            for i in 0..5 {
+                if let Ok(channel) = Channel::from_shared(addr.clone()).unwrap().connect().await {
+                    let client = ReportStatusClient::new(channel);
+                    // todo return the service list which is subscribed by this service
+                    reporters.insert(cloned_id, client);
+                    break;
+                }
+                warn!("connect to service failed, retry: {}", i);
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        });
+    }
+
     pub async fn broadcast(&self, instance: ServiceInstance) {
         // broadcast to all subscribers
         if let Some(pub_sub_hub) = self.pub_sub_hub.get(&instance.name) {
@@ -87,40 +123,19 @@ impl ServiceRegistry for Hub {
         let instance = request.into_inner();
         debug!("register service: {:?}", &instance);
 
-        let name = instance.name.clone();
-        let id = instance.id.clone();
         // register to pub-sub hub
         if !instance.subscribed_services.is_empty() {
-            for name in &instance.subscribed_services {
-                self.pub_sub_hub
-                    .entry(name.clone())
-                    .or_default()
-                    .push(id.clone());
-            }
+            self.register_pub_sub(&instance);
 
-            // connect to the service
-            let reporters = self.reporter.clone();
-            let cloned_id = id.clone();
-            let addr = format!("http://{}:{}", &instance.address, &instance.port);
-            tokio::spawn(async move {
-                for i in 0..5 {
-                    if let Ok(channel) = Channel::from_shared(addr.clone()).unwrap().connect().await
-                    {
-                        let client = ReportStatusClient::new(channel);
-                        // todo return the service list which is subscribed by this service
-                        reporters.insert(cloned_id, client);
-                        break;
-                    }
-                    warn!("connect to service failed, retry: {}", i);
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                }
-            });
+            // register reporter
+            self.register_reporter(&instance);
         }
+
         // register to registry pool
         self.registry_pool
-            .entry(name.clone())
+            .entry(instance.name.clone())
             .or_default()
-            .insert(id.clone(), instance.clone());
+            .insert(instance.id.clone(), instance.clone());
 
         // notify all subscribers
         self.broadcast(instance).await;

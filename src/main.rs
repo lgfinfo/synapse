@@ -62,11 +62,11 @@ mod tests {
             address: "127.0.0.1".to_string(),
             port: 8080,
             version: "".to_string(),
-            health_endpoint: "".to_string(),
             r#type: 0,
             metadata: Default::default(),
             tags: vec![],
             subscribed_services: vec![],
+            health_check: None,
         };
         client.register_service(req).await.unwrap();
         let response = client
@@ -92,11 +92,11 @@ mod tests {
             address: "127.0.0.1".to_string(),
             port: 50053,
             version: "".to_string(),
-            health_endpoint: "".to_string(),
             r#type: 0,
             metadata: Default::default(),
             tags: vec![],
             subscribed_services: vec![],
+            health_check: None,
         };
         client.register_service(req).await.unwrap();
     }

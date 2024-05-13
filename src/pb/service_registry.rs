@@ -12,18 +12,26 @@ pub struct ServiceInstance {
     pub port: i32,
     #[prost(string, tag = "5")]
     pub version: ::prost::alloc::string::String,
-    #[prost(string, tag = "6")]
-    pub health_endpoint: ::prost::alloc::string::String,
-    #[prost(enumeration = "ServiceType", tag = "7")]
+    #[prost(enumeration = "ServiceType", tag = "6")]
     pub r#type: i32,
-    #[prost(map = "string, string", tag = "8")]
+    #[prost(map = "string, string", tag = "7")]
     pub metadata:
         ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    #[prost(string, repeated, tag = "9")]
+    #[prost(string, repeated, tag = "8")]
     pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// todo 服务状态
-    #[prost(string, repeated, tag = "10")]
+    #[prost(string, repeated, tag = "9")]
     pub subscribed_services: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// todo 服务状态
+    #[prost(message, optional, tag = "10")]
+    pub health_check: ::core::option::Option<HealthCheck>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HealthCheck {
+    #[prost(string, tag = "1")]
+    pub health_endpoint: ::prost::alloc::string::String,
+    #[prost(int32, tag = "2")]
+    pub interval: i32,
 }
 /// 操作状态定义
 #[allow(clippy::derive_partial_eq_without_eq)]
