@@ -1,8 +1,13 @@
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
+use futures::{Stream, StreamExt};
+use tokio::sync::broadcast::Sender;
+use tonic::codegen::tokio_stream::wrappers::BroadcastStream;
 use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
 use tracing::{debug, warn};
@@ -12,7 +17,7 @@ use crate::pb::report_status_client::ReportStatusClient;
 use crate::pb::service_registry_server::ServiceRegistry;
 use crate::pb::{
     HealthCheckRequest, OperationStatus, QueryRequest, QueryResponse, ReportRequest, ServiceActive,
-    ServiceInstance, ServiceInstanceIdentifier, ServiceStatus,
+    ServiceInstance, ServiceInstanceIdentifier, ServiceStatus, SubscribeRequest,
 };
 
 pub type ServiceInstances = DashMap<ServiceId, ServiceInstance>;
@@ -27,6 +32,7 @@ pub type ServiceId = String;
 
 /// pub-sub hub
 pub type PubSubHub = DashMap<ServiceName, Vec<ServiceId>>;
+pub type PubSub = DashMap<ServiceName, Sender<Result<ReportRequest, Status>>>;
 
 pub type ReporterPool = Arc<DashMap<ServiceId, ReportStatusClient<Channel>>>;
 
@@ -34,10 +40,11 @@ pub type ReporterPool = Arc<DashMap<ServiceId, ReportStatusClient<Channel>>>;
 #[derive(Clone, Debug)]
 pub struct Hub {
     /// register center
-    pub registry_pool: RegistryPool,
+    registry_pool: RegistryPool,
     /// publish subscribe center
-    pub pub_sub_hub: PubSubHub,
-    pub reporter: ReporterPool,
+    pub_sub_hub: PubSubHub,
+    reporter: ReporterPool,
+    broadcaster: PubSub,
 }
 
 impl Hub {
@@ -46,6 +53,7 @@ impl Hub {
             registry_pool: Arc::new(DashMap::new()),
             pub_sub_hub: DashMap::new(),
             reporter: Arc::new(DashMap::new()),
+            broadcaster: DashMap::new(),
         }
     }
 
@@ -146,8 +154,8 @@ impl Hub {
 
     pub async fn broadcast(&self, instance: ServiceInstance) {
         // broadcast to all subscribers
-        if let Some(pub_sub_hub) = self.pub_sub_hub.get(&instance.name) {
-            let pub_sub_hub = pub_sub_hub.value();
+        if let Some(chan) = self.broadcaster.get(&instance.name) {
+            let chan = chan.value();
             let req = ReportRequest {
                 id: instance.id.clone(),
                 name: instance.name,
@@ -155,15 +163,7 @@ impl Hub {
                 port: instance.port,
                 active: ServiceActive::Active as i32,
             };
-            for id2 in pub_sub_hub {
-                if id2 != &instance.id {
-                    if let Some(mut reporter) = self.reporter.get_mut(id2) {
-                        let reporter = reporter.value_mut();
-                        let res = reporter.report_status(req.clone()).await.unwrap();
-                        debug!("report status: {:?}", res);
-                    }
-                }
-            }
+            chan.send(Ok(req)).unwrap();
         }
     }
 }
@@ -254,5 +254,34 @@ impl ServiceRegistry for Hub {
         Ok(Response::new(QueryResponse {
             services: instances.iter().map(|x| x.value().clone()).collect(),
         }))
+    }
+
+    type SubscribeStream = Pin<Box<dyn Stream<Item = Result<ReportRequest, Status>> + Send>>;
+
+    async fn subscribe(
+        &self,
+        request: Request<SubscribeRequest>,
+    ) -> Result<Response<Self::SubscribeStream>, Status> {
+        let name = request.into_inner().service;
+        debug!("subscribe: {:?}", name);
+        let rx = match self.broadcaster.entry(name) {
+            Entry::Occupied(res) => res.get().subscribe(),
+            Entry::Vacant(entry) => {
+                let (tx, rx) = tokio::sync::broadcast::channel(100);
+                entry.insert(tx);
+                rx
+            }
+        };
+
+        let stream = BroadcastStream::new(rx).map(|message_result| {
+            message_result.unwrap_or_else(|recv_error| {
+                // 如果是Err，则将BroadcastStream的错误转换成gRPC的错误
+                Err(Status::internal(format!(
+                    "Broadcast error: {:?}",
+                    recv_error
+                )))
+            })
+        });
+        Ok(Response::new(Box::pin(stream)))
     }
 }

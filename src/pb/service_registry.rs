@@ -38,6 +38,12 @@ pub struct HealthCheck {
     #[prost(int32, tag = "4")]
     pub retries: i32,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SubscribeRequest {
+    #[prost(string, tag = "1")]
+    pub service: ::prost::alloc::string::String,
+}
 /// 操作状态定义
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -322,6 +328,29 @@ pub mod service_registry_client {
             ));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn subscribe(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SubscribeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::ReportRequest>>,
+            tonic::Status,
+        > {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path =
+                http::uri::PathAndQuery::from_static("/service_registry.ServiceRegistry/Subscribe");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new(
+                "service_registry.ServiceRegistry",
+                "Subscribe",
+            ));
+            self.inner.server_streaming(req, path, codec).await
+        }
     }
 }
 /// Generated client implementations.
@@ -452,6 +481,15 @@ pub mod service_registry_server {
             &self,
             request: tonic::Request<super::QueryRequest>,
         ) -> std::result::Result<tonic::Response<super::QueryResponse>, tonic::Status>;
+        /// Server streaming response type for the Subscribe method.
+        type SubscribeStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::ReportRequest, tonic::Status>,
+            > + Send
+            + 'static;
+        async fn subscribe(
+            &self,
+            request: tonic::Request<super::SubscribeRequest>,
+        ) -> std::result::Result<tonic::Response<Self::SubscribeStream>, tonic::Status>;
     }
     /// gRPC服务接口定义，用于服务注册、注销和查询
     #[derive(Debug)]
@@ -651,6 +689,51 @@ pub mod service_registry_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/service_registry.ServiceRegistry/Subscribe" => {
+                    #[allow(non_camel_case_types)]
+                    struct SubscribeSvc<T: ServiceRegistry>(pub Arc<T>);
+                    impl<T: ServiceRegistry>
+                        tonic::server::ServerStreamingService<super::SubscribeRequest>
+                        for SubscribeSvc<T>
+                    {
+                        type Response = super::ReportRequest;
+                        type ResponseStream = T::SubscribeStream;
+                        type Future =
+                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SubscribeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ServiceRegistry>::subscribe(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SubscribeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)
