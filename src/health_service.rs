@@ -1,5 +1,5 @@
-use crate::pb::health_check_response::ServingStatus;
 use crate::pb::health_server::Health;
+use crate::pb::ServingStatus;
 use crate::pb::{HealthCheckRequest, HealthCheckResponse};
 use async_trait::async_trait;
 use std::pin::Pin;
@@ -8,6 +8,7 @@ use tonic::{Request, Response, Status};
 use tracing::debug;
 
 pub struct HealthService {}
+
 /// implement grpc health check
 #[async_trait]
 impl Health for HealthService {

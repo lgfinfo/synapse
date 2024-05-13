@@ -21,9 +21,10 @@ pub struct ServiceInstance {
     pub tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag = "9")]
     pub subscribed_services: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
-    /// todo 服务状态
     #[prost(message, optional, tag = "10")]
     pub health_check: ::core::option::Option<HealthCheck>,
+    #[prost(enumeration = "ServiceStatus", tag = "11")]
+    pub status: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -32,6 +33,10 @@ pub struct HealthCheck {
     pub health_endpoint: ::prost::alloc::string::String,
     #[prost(int32, tag = "2")]
     pub interval: i32,
+    #[prost(int32, tag = "3")]
+    pub timeout: i32,
+    #[prost(int32, tag = "4")]
+    pub retries: i32,
 }
 /// 操作状态定义
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -110,6 +115,32 @@ impl ServiceType {
             "HTTP" => Some(Self::Http),
             "HTTPS" => Some(Self::Https),
             "GRPC" => Some(Self::Grpc),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ServiceStatus {
+    Up = 0,
+    Down = 1,
+}
+impl ServiceStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            ServiceStatus::Up => "UP",
+            ServiceStatus::Down => "DOWN",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "UP" => Some(Self::Up),
+            "DOWN" => Some(Self::Down),
             _ => None,
         }
     }

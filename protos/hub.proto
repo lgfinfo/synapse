@@ -18,13 +18,21 @@ message ServiceInstance{
   repeated string tags = 8;
   repeated string subscribed_services = 9;
   optional HealthCheck health_check = 10;
-  // todo 服务状态
+  ServiceStatus status = 11;
+}
+
+enum ServiceStatus{
+  UP = 0;
+  DOWN = 1;
 }
 
 message HealthCheck{
   string health_endpoint = 1;
   int32 interval = 2;
+  int32 timeout = 3;
+  int32 retries = 4;
 }
+
 // gRPC服务接口定义，用于服务注册、注销和查询
 service ServiceRegistry {
   // 注册服务实例

@@ -27,10 +27,10 @@ mod tests {
     use tonic::server::NamedService;
     use tonic::transport::Channel;
 
-    use register_center::pb::health_check_response::ServingStatus;
     use register_center::pb::health_client::HealthClient;
     use register_center::pb::service_registry_client::ServiceRegistryClient;
     use register_center::pb::service_registry_server::ServiceRegistryServer;
+    use register_center::pb::ServingStatus;
     use register_center::pb::{HealthCheckRequest, QueryRequest, ServiceInstance};
 
     use crate::hub::Hub;
@@ -67,6 +67,7 @@ mod tests {
             tags: vec![],
             subscribed_services: vec![],
             health_check: None,
+            status: 0,
         };
         client.register_service(req).await.unwrap();
         let response = client
@@ -97,6 +98,7 @@ mod tests {
             tags: vec![],
             subscribed_services: vec![],
             health_check: None,
+            status: 0,
         };
         client.register_service(req).await.unwrap();
     }
