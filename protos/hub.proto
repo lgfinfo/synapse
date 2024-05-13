@@ -17,7 +17,8 @@ message ServiceInstance{
   ServiceType type = 7;
   map<string, string> metadata = 8;
   repeated string tags = 9;
-  repeated string subscribed_services  = 10;
+  repeated string subscribed_services = 10;
+  // todo 服务状态
 }
 
 // gRPC服务接口定义，用于服务注册、注销和查询
@@ -36,9 +37,10 @@ message OperationStatus {
   string message = 2; // 相关信息或错误消息
 }
 
-// 服务实例标识定义
+// 服务实例标识定义，我们需要根据服务名称找到所在的服务池子
 message ServiceInstanceIdentifier {
   string id = 1; // 服务实例唯一标识
+  string name = 2; // 服务名称
 }
 
 // 查询请求定义
@@ -49,4 +51,21 @@ message QueryRequest {
 // 查询响应定义
 message QueryResponse {
   repeated ServiceInstance services = 1; // 查询结果，返回服务实例列表
+}
+
+enum ServiceActive{
+  ACTIVE = 0;
+  INACTIVE = 1;
+}
+
+message ReportRequest{
+  string id = 1;
+  string name = 2;
+  string address = 3;
+  int32 port = 4;
+  ServiceActive active = 5;
+}
+
+service ReportStatus{
+  rpc ReportStatus(ReportRequest) returns (OperationStatus);
 }
