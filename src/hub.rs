@@ -8,6 +8,7 @@ use dashmap::DashMap;
 use futures::{Stream, StreamExt};
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::Sender;
+use tokio::time;
 use tonic::codegen::tokio_stream::wrappers::BroadcastStream;
 use tonic::transport::Channel;
 use tonic::{Request, Response, Status};
@@ -16,8 +17,8 @@ use tracing::{debug, warn};
 use crate::pb::health_client::HealthClient;
 use crate::pb::service_registry_server::ServiceRegistry;
 use crate::pb::{
-    HealthCheckRequest, OperationStatus, QueryRequest, QueryResponse, Service, ServiceActive,
-    ServiceInstance, ServiceInstanceIdentifier, ServiceStatus, SubscribeRequest,
+    HealthCheckRequest, OperationStatus, QueryRequest, QueryResponse, Service, ServiceInstance,
+    ServiceInstanceIdentifier, ServiceStatus, SubscribeRequest,
 };
 
 pub type ServiceInstances = DashMap<ServiceId, ServiceInstance>;
@@ -29,9 +30,6 @@ pub type ServiceName = String;
 pub type RegistryPool = Arc<DashMap<ServiceName, ServiceInstances>>;
 
 pub type ServiceId = String;
-
-/// pub-sub hub
-pub type PubSubHub = DashMap<ServiceName, Vec<ServiceId>>;
 pub type PubSub = DashMap<ServiceName, Sender<Result<Service, Status>>>;
 
 /// register center
@@ -52,43 +50,60 @@ impl Hub {
     }
 
     fn modify_service_status(
-        name: &ServiceName,
-        id: &ServiceId,
+        i: &mut ServiceInstance,
         status: ServiceStatus,
         pool: &RegistryPool,
+        max_tries: i32,
     ) -> (bool, bool) {
         let mut need_notify = false;
-        match pool.get(name) {
+        match pool.get(&i.name) {
             // service is unregistered
             None => (false, need_notify),
-            Some(instances) => match instances.get(id) {
+            Some(instances) => match instances.get_mut(&i.id) {
                 // service is unregistered
                 None => (false, need_notify),
-                Some(instance) => {
+                Some(mut instance) => {
+                    // check the retries
+                    let mut health = instance.health_check.clone().unwrap();
+                    if instance.status == ServiceStatus::Down as i32
+                        && status == ServiceStatus::Down
+                    {
+                        health.retries -= 1;
+                    }
+
                     if instance.status != status as i32 {
-                        instances.get_mut(id).unwrap().status = if status == ServiceStatus::Down {
-                            ServiceStatus::Down as i32
+                        if status == ServiceStatus::Down {
+                            instance.status = ServiceStatus::Down as i32;
+                            i.status.clone_from(&instance.status);
                         } else {
-                            ServiceStatus::Up as i32
+                            instance.status = ServiceStatus::Up as i32;
+                            i.status.clone_from(&instance.status);
+                            // reset the retries
+                            health.retries = max_tries;
                         };
                         need_notify = true;
                     }
-                    (true, need_notify)
+                    let retries = health.retries;
+                    instance.health_check.clone_from(&Some(health));
+
+                    (retries > 0, need_notify)
                 }
             },
         }
     }
+
     pub fn health_check(&self, mut instance: ServiceInstance) {
         let addr = format!("http://{}:{}", &instance.address, &instance.port);
         let pool = self.registry_pool.clone();
         let pub_sub = self.broadcaster.clone();
-        let check = instance.health_check.clone();
-        // let id = instance.id.clone();
-        // let name = instance.name.clone();
         tokio::spawn(async move {
             // open health check
-            let health = check.unwrap();
-            let mut tick = tokio::time::interval(Duration::from_secs(health.interval as u64));
+            let health = instance.health_check.as_ref().unwrap();
+            let duration = Duration::from_secs(health.interval as u64);
+            let mut tick = time::interval(duration);
+            time::sleep(duration).await;
+            // todo use timeout
+            debug!("health check start: {:?}", &instance);
             let mut client = HealthClient::new(
                 Channel::from_shared(addr.clone())
                     .unwrap()
@@ -99,38 +114,24 @@ impl Hub {
             let req = HealthCheckRequest {
                 service: health.endpoint.clone(),
             };
+            let max_tries = health.retries;
             loop {
                 tick.tick().await;
-                let is_pass = match client.check(req.clone()).await {
-                    Ok(_) => {
-                        let (is_pass, need_notify) = Self::modify_service_status(
-                            &instance.name,
-                            &instance.id,
-                            ServiceStatus::Up,
-                            &pool,
-                        );
-                        if need_notify {
-                            instance.status = ServiceStatus::Up as i32;
-                            Self::broadcast_(instance.clone(), &pub_sub).await;
-                        }
-                        is_pass
-                    }
-                    Err(e) => {
-                        warn!("health check failed: {:?}", e);
+                let result = client.check(req.clone()).await;
 
-                        let (is_pass, need_notify) = Self::modify_service_status(
-                            &instance.name,
-                            &instance.id,
-                            ServiceStatus::Down,
-                            &pool,
-                        );
-                        if need_notify {
-                            instance.status = ServiceStatus::Down as i32;
-                            Self::broadcast_(instance.clone(), &pub_sub).await;
-                        }
-                        is_pass
-                    }
+                let status = if result.is_ok() {
+                    warn!("health check success: {:?}", instance);
+                    ServiceStatus::Up
+                } else {
+                    warn!("health check failed: {:?}", instance);
+                    ServiceStatus::Down
                 };
+
+                let (is_pass, need_notify) =
+                    Self::modify_service_status(&mut instance, status, &pool, max_tries);
+                if need_notify {
+                    Self::broadcast_(instance.clone(), &pub_sub).await;
+                }
                 if !is_pass {
                     break;
                 }
@@ -151,9 +152,11 @@ impl Hub {
                 name: instance.name,
                 address: instance.address,
                 port: instance.port,
-                active: ServiceActive::Active as i32,
+                active: instance.status,
             };
-            chan.send(Ok(req)).unwrap();
+            if let Err(e) = chan.send(Ok(req)) {
+                warn!("broadcast failed: {:?}", e);
+            }
         }
     }
 }
@@ -173,7 +176,20 @@ impl ServiceRegistry for Hub {
     ) -> Result<Response<OperationStatus>, Status> {
         let instance = request.into_inner();
         debug!("register service: {:?}", &instance);
-
+        if let Some(existing_services) = self.registry_pool.get(&instance.name) {
+            if let Some(existing_instance) = existing_services.get(&instance.id) {
+                // Skip if the instance already registered and the same as the new one
+                if instance == *existing_instance
+                    && existing_instance.health_check.is_some()
+                    && existing_instance.health_check.as_ref().unwrap().retries > 0
+                {
+                    return Ok(Response::new(OperationStatus {
+                        success: true,
+                        message: "service already registered".to_string(),
+                    }));
+                }
+            }
+        }
         // register to registry pool
         self.registry_pool
             .entry(instance.name.clone())

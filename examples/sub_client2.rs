@@ -8,8 +8,8 @@ use register_center::pb::{
 use std::pin::Pin;
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
-use tracing::debug;
 use tracing::Level;
+use tracing::{debug, info};
 
 pub struct HealthCheckService;
 
@@ -46,12 +46,12 @@ async fn main() {
         .unwrap();
     let mut client = ServiceRegistryClient::new(channel);
     // register self to center
-    client
+    let result = client
         .register_service(ServiceInstance {
-            id: "1".to_string(),
-            name: "ws".to_string(),
+            id: "12".to_string(),
+            name: "test".to_string(),
             address: "127.0.0.1".to_string(),
-            port: 50001,
+            port: 50002,
             version: "".to_string(),
             r#type: 0,
             metadata: Default::default(),
@@ -66,10 +66,11 @@ async fn main() {
         })
         .await
         .unwrap();
+    info!("register result: {:?}", result);
     tokio::spawn(async move {
         let mut stream = client
             .subscribe(SubscribeRequest {
-                service: "test".to_string(),
+                service: "ws".to_string(),
             })
             .await
             .unwrap()
@@ -81,7 +82,7 @@ async fn main() {
     let health = HealthServer::new(HealthCheckService);
     Server::builder()
         .add_service(health)
-        .serve("127.0.0.1:50001".parse().unwrap())
+        .serve("127.0.0.1:50002".parse().unwrap())
         .await
         .unwrap()
 }

@@ -91,7 +91,7 @@ pub struct Service {
     pub address: ::prost::alloc::string::String,
     #[prost(int32, tag = "4")]
     pub port: i32,
-    #[prost(enumeration = "ServiceActive", tag = "5")]
+    #[prost(enumeration = "ServiceStatus", tag = "5")]
     pub active: i32,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -145,32 +145,6 @@ impl ServiceStatus {
         match value {
             "UP" => Some(Self::Up),
             "DOWN" => Some(Self::Down),
-            _ => None,
-        }
-    }
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum ServiceActive {
-    Active = 0,
-    Inactive = 1,
-}
-impl ServiceActive {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            ServiceActive::Active => "ACTIVE",
-            ServiceActive::Inactive => "INACTIVE",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "ACTIVE" => Some(Self::Active),
-            "INACTIVE" => Some(Self::Inactive),
             _ => None,
         }
     }

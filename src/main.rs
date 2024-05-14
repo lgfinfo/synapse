@@ -80,6 +80,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_query() {
+        let channel = Channel::from_static("http://127.0.0.1:50051")
+            .connect()
+            .await
+            .unwrap();
+        let mut client = ServiceRegistryClient::new(channel);
+        let response = client
+            .query_services(QueryRequest {
+                name: "ws".to_string(),
+            })
+            .await
+            .unwrap();
+
+        println!("{:?}", response.into_inner());
+    }
+
+    #[tokio::test]
     async fn test_notify() {
         let channel = Channel::from_static("http://127.0.0.1:50051")
             .connect()

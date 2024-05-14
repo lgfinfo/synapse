@@ -68,15 +68,11 @@ message QueryResponse {
   repeated ServiceInstance services = 1; // 查询结果，返回服务实例列表
 }
 
-enum ServiceActive{
-  ACTIVE = 0;
-  INACTIVE = 1;
-}
 
 message Service{
   string id = 1;
   string name = 2;
   string address = 3;
   int32 port = 4;
-  ServiceActive active = 5;
+  ServiceStatus active = 5;
 }
