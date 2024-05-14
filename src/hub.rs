@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use futures::{Stream, StreamExt};
+use tokio::sync::broadcast;
 use tokio::sync::broadcast::Sender;
 use tonic::codegen::tokio_stream::wrappers::BroadcastStream;
 use tonic::transport::Channel;
@@ -13,10 +14,9 @@ use tonic::{Request, Response, Status};
 use tracing::{debug, warn};
 
 use crate::pb::health_client::HealthClient;
-use crate::pb::report_status_client::ReportStatusClient;
 use crate::pb::service_registry_server::ServiceRegistry;
 use crate::pb::{
-    HealthCheckRequest, OperationStatus, QueryRequest, QueryResponse, ReportRequest, ServiceActive,
+    HealthCheckRequest, OperationStatus, QueryRequest, QueryResponse, Service, ServiceActive,
     ServiceInstance, ServiceInstanceIdentifier, ServiceStatus, SubscribeRequest,
 };
 
@@ -32,9 +32,7 @@ pub type ServiceId = String;
 
 /// pub-sub hub
 pub type PubSubHub = DashMap<ServiceName, Vec<ServiceId>>;
-pub type PubSub = DashMap<ServiceName, Sender<Result<ReportRequest, Status>>>;
-
-pub type ReporterPool = Arc<DashMap<ServiceId, ReportStatusClient<Channel>>>;
+pub type PubSub = DashMap<ServiceName, Sender<Result<Service, Status>>>;
 
 /// register center
 #[derive(Clone, Debug)]
@@ -42,8 +40,6 @@ pub struct Hub {
     /// register center
     registry_pool: RegistryPool,
     /// publish subscribe center
-    pub_sub_hub: PubSubHub,
-    reporter: ReporterPool,
     broadcaster: PubSub,
 }
 
@@ -51,27 +47,7 @@ impl Hub {
     pub fn new() -> Self {
         Self {
             registry_pool: Arc::new(DashMap::new()),
-            pub_sub_hub: DashMap::new(),
-            reporter: Arc::new(DashMap::new()),
             broadcaster: DashMap::new(),
-        }
-    }
-
-    pub fn register_pub_sub(&self, instance: &ServiceInstance) {
-        for name in &instance.subscribed_services {
-            self.pub_sub_hub
-                .entry(name.clone())
-                .or_default()
-                .push(instance.id.clone());
-        }
-    }
-
-    pub fn un_register_pub_sub(&self, instance: &ServiceInstance) {
-        for name in &instance.subscribed_services {
-            self.pub_sub_hub
-                .entry(name.clone())
-                .or_default()
-                .push(instance.id.clone());
         }
     }
 
@@ -80,13 +56,14 @@ impl Hub {
         id: &ServiceId,
         status: ServiceStatus,
         pool: &RegistryPool,
-    ) -> bool {
+    ) -> (bool, bool) {
+        let mut need_notify = false;
         match pool.get(name) {
             // service is unregistered
-            None => false,
+            None => (false, need_notify),
             Some(instances) => match instances.get(id) {
                 // service is unregistered
-                None => false,
+                None => (false, need_notify),
                 Some(instance) => {
                     if instance.status != status as i32 {
                         instances.get_mut(id).unwrap().status = if status == ServiceStatus::Down {
@@ -94,59 +71,68 @@ impl Hub {
                         } else {
                             ServiceStatus::Up as i32
                         };
-                        // todo notify the subscribers
+                        need_notify = true;
                     }
-                    true
+                    (true, need_notify)
                 }
             },
         }
     }
-    pub fn register_reporter(&self, instance: &ServiceInstance) {
-        let reporters = self.reporter.clone();
-        let cloned_id = instance.id.clone();
+    pub fn health_check(&self, mut instance: ServiceInstance) {
         let addr = format!("http://{}:{}", &instance.address, &instance.port);
         let pool = self.registry_pool.clone();
+        let pub_sub = self.broadcaster.clone();
         let check = instance.health_check.clone();
-        let id = instance.id.clone();
-        let name = instance.name.clone();
+        // let id = instance.id.clone();
+        // let name = instance.name.clone();
         tokio::spawn(async move {
-            // todo use timeout instead of loop
-            for i in 0..5 {
-                if let Ok(channel) = Channel::from_shared(addr.clone()).unwrap().connect().await {
-                    let client = ReportStatusClient::new(channel);
-                    // todo return the service list which is subscribed by this service
-                    reporters.insert(cloned_id, client);
-                    break;
-                }
-                warn!("connect to service failed, retry: {}", i);
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
             // open health check
-            if let Some(health) = check {
-                let mut tick = tokio::time::interval(Duration::from_secs(health.interval as u64));
-                let mut client = HealthClient::new(
-                    Channel::from_shared(addr.clone())
-                        .unwrap()
-                        .connect()
-                        .await
-                        .unwrap(),
-                );
-                let req = HealthCheckRequest {
-                    service: health.endpoint.clone(),
-                };
-                loop {
-                    tick.tick().await;
-                    let is_pass = match client.check(req.clone()).await {
-                        Ok(_) => Self::modify_service_status(&name, &id, ServiceStatus::Up, &pool),
-                        Err(e) => {
-                            warn!("health check failed: {:?}", e);
-
-                            Self::modify_service_status(&name, &id, ServiceStatus::Down, &pool)
+            let health = check.unwrap();
+            let mut tick = tokio::time::interval(Duration::from_secs(health.interval as u64));
+            let mut client = HealthClient::new(
+                Channel::from_shared(addr.clone())
+                    .unwrap()
+                    .connect()
+                    .await
+                    .unwrap(),
+            );
+            let req = HealthCheckRequest {
+                service: health.endpoint.clone(),
+            };
+            loop {
+                tick.tick().await;
+                let is_pass = match client.check(req.clone()).await {
+                    Ok(_) => {
+                        let (is_pass, need_notify) = Self::modify_service_status(
+                            &instance.name,
+                            &instance.id,
+                            ServiceStatus::Up,
+                            &pool,
+                        );
+                        if need_notify {
+                            instance.status = ServiceStatus::Up as i32;
+                            Self::broadcast_(instance.clone(), &pub_sub).await;
                         }
-                    };
-                    if !is_pass {
-                        break;
+                        is_pass
                     }
+                    Err(e) => {
+                        warn!("health check failed: {:?}", e);
+
+                        let (is_pass, need_notify) = Self::modify_service_status(
+                            &instance.name,
+                            &instance.id,
+                            ServiceStatus::Down,
+                            &pool,
+                        );
+                        if need_notify {
+                            instance.status = ServiceStatus::Down as i32;
+                            Self::broadcast_(instance.clone(), &pub_sub).await;
+                        }
+                        is_pass
+                    }
+                };
+                if !is_pass {
+                    break;
                 }
             }
         });
@@ -154,9 +140,13 @@ impl Hub {
 
     pub async fn broadcast(&self, instance: ServiceInstance) {
         // broadcast to all subscribers
-        if let Some(chan) = self.broadcaster.get(&instance.name) {
+        Self::broadcast_(instance, &self.broadcaster).await;
+    }
+
+    async fn broadcast_(instance: ServiceInstance, broadcaster: &PubSub) {
+        if let Some(chan) = broadcaster.get(&instance.name) {
             let chan = chan.value();
-            let req = ReportRequest {
+            let req = Service {
                 id: instance.id.clone(),
                 name: instance.name,
                 address: instance.address,
@@ -184,19 +174,20 @@ impl ServiceRegistry for Hub {
         let instance = request.into_inner();
         debug!("register service: {:?}", &instance);
 
-        // register to pub-sub hub
-        if !instance.subscribed_services.is_empty() {
-            self.register_pub_sub(&instance);
-
-            // register reporter and open health check
-            self.register_reporter(&instance);
-        }
-
         // register to registry pool
         self.registry_pool
             .entry(instance.name.clone())
             .or_default()
             .insert(instance.id.clone(), instance.clone());
+
+        // check channel if exists
+        self.broadcaster
+            .entry(instance.name.clone())
+            .or_insert(broadcast::channel(100).0);
+
+        if instance.health_check.is_some() {
+            self.health_check(instance.clone());
+        }
 
         // notify all subscribers
         self.broadcast(instance).await;
@@ -226,15 +217,6 @@ impl ServiceRegistry for Hub {
             self.broadcast(instance).await;
         }
 
-        // unregister from pub-sub hub
-        if let Some(mut pub_sub_hub) = self.pub_sub_hub.get_mut(&identifier.name) {
-            let pub_sub_hub = pub_sub_hub.value_mut();
-            pub_sub_hub.retain(|id| id != &identifier.id);
-        }
-
-        // unregister from reporter pool
-        self.reporter.remove(&identifier.id);
-
         Ok(Response::new(OperationStatus {
             success: true,
             message: "unregister service success".to_string(),
@@ -256,7 +238,7 @@ impl ServiceRegistry for Hub {
         }))
     }
 
-    type SubscribeStream = Pin<Box<dyn Stream<Item = Result<ReportRequest, Status>> + Send>>;
+    type SubscribeStream = Pin<Box<dyn Stream<Item = Result<Service, Status>> + Send>>;
 
     async fn subscribe(
         &self,
@@ -267,7 +249,7 @@ impl ServiceRegistry for Hub {
         let rx = match self.broadcaster.entry(name) {
             Entry::Occupied(res) => res.get().subscribe(),
             Entry::Vacant(entry) => {
-                let (tx, rx) = tokio::sync::broadcast::channel(100);
+                let (tx, rx) = broadcast::channel(100);
                 entry.insert(tx);
                 rx
             }

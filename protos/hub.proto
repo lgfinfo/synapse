@@ -16,9 +16,8 @@ message ServiceInstance{
   ServiceType type = 6;
   map<string, string> metadata = 7;
   repeated string tags = 8;
-  repeated string subscribed_services = 9;
-  optional HealthCheck health_check = 10;
-  ServiceStatus status = 11;
+  optional HealthCheck health_check = 9;
+  ServiceStatus status = 10;
 }
 
 enum ServiceStatus{
@@ -41,7 +40,7 @@ service ServiceRegistry {
   rpc UnregisterService(ServiceInstanceIdentifier) returns (OperationStatus);
   // 查询服务实例
   rpc QueryServices(QueryRequest) returns (QueryResponse);
-  rpc Subscribe(SubscribeRequest) returns (stream ReportRequest);
+  rpc Subscribe(SubscribeRequest) returns (stream Service);
 }
 
 message SubscribeRequest{
@@ -74,14 +73,10 @@ enum ServiceActive{
   INACTIVE = 1;
 }
 
-message ReportRequest{
+message Service{
   string id = 1;
   string name = 2;
   string address = 3;
   int32 port = 4;
   ServiceActive active = 5;
-}
-
-service ReportStatus{
-  rpc ReportStatus(ReportRequest) returns (OperationStatus);
 }

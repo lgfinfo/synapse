@@ -65,7 +65,6 @@ mod tests {
             r#type: 0,
             metadata: Default::default(),
             tags: vec![],
-            subscribed_services: vec![],
             health_check: None,
             status: 0,
         };
@@ -96,7 +95,6 @@ mod tests {
             r#type: 0,
             metadata: Default::default(),
             tags: vec![],
-            subscribed_services: vec![],
             health_check: None,
             status: 0,
         };
