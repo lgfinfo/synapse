@@ -1,30 +1,41 @@
-设计并实现一个具备主动推送能力的注册中心，意味着您将创建一个系统，它可以自动将服务实例的变化即时通知给所有相关的消费者。这项任务涉及到网络编程、并发处理、以及可靠的数据存储等技术挑战。这里提供一个高层次的设计蓝图来帮助您开始：
-1. 定义数据模型
-   首先，定义注册中心需要跟踪的关键数据模型，至少包括：
-   服务实例：保存服务名、实例地址（IP 和端口）、健康状态、元数据等信息。
-   订阅者列表：跟踪哪些客户端订阅了服务实例的更新。
-2. 创建核心组件
-   注册和注销接口：允许服务实例注册到注册中心以及注销。
-   健康检查机制：定期检查注册的服务实例是否仍然可用。
-   订阅和通知系统：允许客户端订阅服务实例更新，并在实例变化时接收通知。
-   数据存储和检索：存储服务实例信息和订阅者信息，并能快速检索。
-3. 实现推送逻辑
-   事件驱动模型：当服务实例注册、注销或其状态变化时，触发事件。
-   消息队列：使用消息队列来缓存和分发更新事件，提高系统的扩展性和健壮性。
-   通知分发：根据订阅者列表发送更新通知给所有关联的消费者。
-4. 确保高可用和可扩展性
-   冗余部署：多副本运行注册中心，确保单点故障不会影响整个系统。
-   负载均衡：在多个注册中心实例之间分配请求负载。
-   持久化：将数据持久化到磁盘以防止数据丢失。
-5. 安全机制
-   认证与授权：确保只有认证过的服务和客户端可以注册、注销或获取服务列表。
-   加密通讯：使用 TLS/SSL 等技术加密网络通信。
-6. 监控与日志
-   审计日志：记录所有重要的操作，以便于问题追踪和系统调试。
-   健康监控：监控注册中心自身状态，并提供报警机制。
-   Rust 语言实现示例思路：
-   使用 async-std 或 tokio 来提供异步网络服务。
-   利用 WebSocket 或其他长连接通信方式来实现服务端向客户端的实时通信。
-   使用 serde 库进行数据的序列化和反序列化。
-   tokio::sync 或类似机制来处理并发访问和数据更新。
-   考虑使用现代的库，如 axum 或 warp，简化 HTTP 和 WebSocket 的服务构建。
+# Synapse
+
+Welcome to **synapse**, the dynamic service discovery and registry solution designed for microservices architectures that need robust and real-time communication. Built with a focus on gRPC for efficient service-to-service communication, it also lays the foundation for future HTTP support, making it a versatile choice for diverse microservice ecosystems.
+
+## Features
+
+- **gRPC Support**: Utilizes gRPC for high-performance, secure communication between services, supporting advanced patterns like streaming and the robust Pub/Sub model.
+- **Dynamic Service Discovery**: Automatically detects service instances, making it easier to scale up or down without manual intervention.
+- **Health Checks**: Implements thorough health checks, ensuring that communications are only directed to healthy instances, hence maintaining the reliability of your system.
+- **Future-proof**: Designed with an eye on the future, anticipating full support for HTTP-based services to cater to a wider range of service communication needs.
+
+## Getting Started
+
+To get started with **synapse**, ensure that you have the latest version of Rust installed. This project uses `cargo` for dependency management and builds.
+
+### Installation
+
+1. Clone the repository:
+
+bash
+
+```bash
+git clone https://github.com/Xu-Mj/synapse.git
+cd synapse
+```
+
+1. Build the project:
+
+shell
+
+```shell
+cargo build --release
+```
+
+1. Run **synapse**:
+
+shell
+
+```shell
+./target/release/synapse
+```
