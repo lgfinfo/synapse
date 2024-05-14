@@ -10,9 +10,9 @@ use tokio::sync::broadcast;
 use tokio::sync::broadcast::Sender;
 use tokio::time;
 use tonic::codegen::tokio_stream::wrappers::BroadcastStream;
-use tonic::transport::Channel;
+use tonic::transport::{Channel, Endpoint};
 use tonic::{Request, Response, Status};
-use tracing::{debug, warn};
+use tracing::{debug, error, warn};
 
 use crate::pb::health_client::HealthClient;
 use crate::pb::service_registry_server::ServiceRegistry;
@@ -100,23 +100,22 @@ impl Hub {
             // open health check
             let health = instance.health_check.as_ref().unwrap();
             let duration = Duration::from_secs(health.interval as u64);
-            let mut tick = time::interval(duration);
-            time::sleep(duration).await;
-            // todo use timeout
             debug!("health check start: {:?}", &instance);
-            let mut client = HealthClient::new(
-                Channel::from_shared(addr.clone())
-                    .unwrap()
-                    .connect()
-                    .await
-                    .unwrap(),
-            );
+
+            let mut client = match Self::create_health_client(addr, health.timeout).await {
+                Ok(client) => client,
+                Err(err) => {
+                    // service health check configuration error
+                    error!("create health client failed: {:?}", err);
+                    return;
+                }
+            };
             let req = HealthCheckRequest {
                 service: health.endpoint.clone(),
             };
             let max_tries = health.retries;
             loop {
-                tick.tick().await;
+                time::sleep(duration).await;
                 let result = client.check(req.clone()).await;
 
                 let status = if result.is_ok() {
@@ -138,7 +137,18 @@ impl Hub {
             }
         });
     }
+    async fn create_health_client(
+        addr: String,
+        timeout: i32,
+    ) -> Result<HealthClient<Channel>, Box<dyn std::error::Error>> {
+        let endpoint = Endpoint::from_shared(addr)?
+            .timeout(Duration::from_secs(timeout as u64))
+            .connect_lazy();
 
+        let client = HealthClient::new(endpoint);
+
+        Ok(client)
+    }
     pub async fn broadcast(&self, instance: ServiceInstance) {
         // broadcast to all subscribers
         Self::broadcast_(instance, &self.broadcaster).await;
