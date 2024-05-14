@@ -1,11 +1,13 @@
-use crate::pb::health_server::Health;
-use crate::pb::ServingStatus;
-use crate::pb::{HealthCheckRequest, HealthCheckResponse};
-use async_trait::async_trait;
 use std::pin::Pin;
+
+use async_trait::async_trait;
 use tonic::codegen::tokio_stream::Stream;
 use tonic::{Request, Response, Status};
 use tracing::debug;
+
+use crate::pb::health_server::Health;
+use crate::pb::ServingStatus;
+use crate::pb::{HealthCheckRequest, HealthCheckResponse};
 
 pub struct HealthService {}
 

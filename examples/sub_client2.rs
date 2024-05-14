@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use futures::Stream;
-use register_center::pb::health_server::{Health, HealthServer};
-use register_center::pb::service_registry_client::ServiceRegistryClient;
-use register_center::pb::{
+use std::pin::Pin;
+use synapse::pb::health_server::{Health, HealthServer};
+use synapse::pb::service_registry_client::ServiceRegistryClient;
+use synapse::pb::{
     HealthCheck, HealthCheckRequest, HealthCheckResponse, ServiceInstance, SubscribeRequest,
 };
-use std::pin::Pin;
 use tonic::transport::{Channel, Server};
 use tonic::{Request, Response, Status};
 use tracing::Level;
