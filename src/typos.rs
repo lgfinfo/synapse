@@ -8,7 +8,7 @@ impl From<ServiceInstance> for Service {
             address: value.address,
             port: value.port,
             active: value.status,
-            schema: value.schema,
+            scheme: value.scheme,
         }
     }
 }

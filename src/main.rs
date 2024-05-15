@@ -30,8 +30,8 @@ mod tests {
     use synapse::pb::health_client::HealthClient;
     use synapse::pb::service_registry_client::ServiceRegistryClient;
     use synapse::pb::service_registry_server::ServiceRegistryServer;
-    use synapse::pb::ServingStatus;
     use synapse::pb::{HealthCheckRequest, QueryRequest, ServiceInstance};
+    use synapse::pb::{Scheme, ServingStatus};
 
     use crate::hub::Hub;
 
@@ -62,12 +62,11 @@ mod tests {
             address: "127.0.0.1".to_string(),
             port: 8080,
             version: "".to_string(),
-            r#type: 0,
             metadata: Default::default(),
             tags: vec![],
             health_check: None,
             status: 0,
-            schema: "https".to_string(),
+            scheme: Scheme::Http as i32,
         };
         client.register_service(req).await.unwrap();
         let response = client
@@ -110,12 +109,11 @@ mod tests {
             address: "127.0.0.1".to_string(),
             port: 50053,
             version: "".to_string(),
-            r#type: 0,
             metadata: Default::default(),
             tags: vec![],
             health_check: None,
             status: 0,
-            schema: "http".to_string(),
+            scheme: Scheme::Http as i32,
         };
         client.register_service(req).await.unwrap();
     }

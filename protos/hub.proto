@@ -1,10 +1,9 @@
 syntax = "proto3";
 package service_registry;
 
-enum ServiceType{
+enum Scheme{
   HTTP = 0;
   HTTPS = 1;
-  GRPC = 2;
 }
 
 message ServiceInstance{
@@ -13,12 +12,11 @@ message ServiceInstance{
   string address = 3;
   int32 port = 4;
   string version = 5;
-  ServiceType type = 6;
+  Scheme scheme = 6;
   map<string, string> metadata = 7;
   repeated string tags = 8;
   optional HealthCheck health_check = 9;
   ServiceStatus status = 10;
-  string schema = 11;
 }
 
 enum ServiceStatus{
@@ -31,7 +29,7 @@ message HealthCheck{
   int32 interval = 2;
   int32 timeout = 3;
   int32 retries = 4;
-  string schema = 5;
+  Scheme scheme = 6;
 }
 
 // gRPC服务接口定义，用于服务注册、注销和查询
@@ -77,5 +75,5 @@ message Service{
   string address = 3;
   int32 port = 4;
   ServiceStatus active = 5;
-  string schema = 6;
+  Scheme scheme = 6;
 }

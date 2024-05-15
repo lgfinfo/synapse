@@ -12,8 +12,8 @@ pub struct ServiceInstance {
     pub port: i32,
     #[prost(string, tag = "5")]
     pub version: ::prost::alloc::string::String,
-    #[prost(enumeration = "ServiceType", tag = "6")]
-    pub r#type: i32,
+    #[prost(enumeration = "Scheme", tag = "6")]
+    pub scheme: i32,
     #[prost(map = "string, string", tag = "7")]
     pub metadata:
         ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
@@ -23,8 +23,6 @@ pub struct ServiceInstance {
     pub health_check: ::core::option::Option<HealthCheck>,
     #[prost(enumeration = "ServiceStatus", tag = "10")]
     pub status: i32,
-    #[prost(string, tag = "11")]
-    pub schema: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -37,8 +35,8 @@ pub struct HealthCheck {
     pub timeout: i32,
     #[prost(int32, tag = "4")]
     pub retries: i32,
-    #[prost(string, tag = "5")]
-    pub schema: ::prost::alloc::string::String,
+    #[prost(enumeration = "Scheme", tag = "6")]
+    pub scheme: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -97,26 +95,24 @@ pub struct Service {
     pub port: i32,
     #[prost(enumeration = "ServiceStatus", tag = "5")]
     pub active: i32,
-    #[prost(string, tag = "6")]
-    pub schema: ::prost::alloc::string::String,
+    #[prost(enumeration = "Scheme", tag = "6")]
+    pub scheme: i32,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum ServiceType {
+pub enum Scheme {
     Http = 0,
     Https = 1,
-    Grpc = 2,
 }
-impl ServiceType {
+impl Scheme {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            ServiceType::Http => "HTTP",
-            ServiceType::Https => "HTTPS",
-            ServiceType::Grpc => "GRPC",
+            Scheme::Http => "HTTP",
+            Scheme::Https => "HTTPS",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -124,7 +120,6 @@ impl ServiceType {
         match value {
             "HTTP" => Some(Self::Http),
             "HTTPS" => Some(Self::Https),
-            "GRPC" => Some(Self::Grpc),
             _ => None,
         }
     }

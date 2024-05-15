@@ -163,7 +163,7 @@ impl Hub {
                 address: instance.address,
                 port: instance.port,
                 active: instance.status,
-                schema: instance.schema,
+                scheme: instance.scheme,
             };
             if let Err(e) = chan.send(Ok(req)) {
                 warn!("broadcast failed: {:?}", e);

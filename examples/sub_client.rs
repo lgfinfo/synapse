@@ -4,7 +4,7 @@ use tracing::Level;
 
 use synapse::pb::health_server::HealthServer;
 use synapse::pb::service_registry_client::ServiceRegistryClient;
-use synapse::pb::{HealthCheck, ServiceInstance, SubscribeRequest};
+use synapse::pb::{HealthCheck, Scheme, ServiceInstance, SubscribeRequest};
 
 // todo 客户端需要重连机制
 #[tokio::main]
@@ -25,7 +25,6 @@ async fn main() {
             address: "127.0.0.1".to_string(),
             port: 50001,
             version: "".to_string(),
-            r#type: 0,
             metadata: Default::default(),
             tags: vec![],
             health_check: Some(HealthCheck {
@@ -33,10 +32,10 @@ async fn main() {
                 interval: 10,
                 timeout: 10,
                 retries: 10,
-                schema: "https".to_string(),
+                scheme: Scheme::Http as i32,
             }),
             status: 0,
-            schema: "https".to_string(),
+            scheme: Scheme::Http as i32,
         })
         .await
         .unwrap();
