@@ -32,6 +32,7 @@ async fn main() {
                 timeout: 10,
                 retries: 10,
                 scheme: Scheme::Http as i32,
+                tls_domain: None,
             }),
             status: 0,
             scheme: Scheme::Http as i32,

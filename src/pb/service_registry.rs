@@ -37,6 +37,8 @@ pub struct HealthCheck {
     pub retries: i32,
     #[prost(enumeration = "Scheme", tag = "6")]
     pub scheme: i32,
+    #[prost(string, optional, tag = "7")]
+    pub tls_domain: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -30,6 +30,7 @@ message HealthCheck{
   int32 timeout = 3;
   int32 retries = 4;
   Scheme scheme = 6;
+  optional string tls_domain = 7;
 }
 
 // gRPC服务接口定义，用于服务注册、注销和查询
