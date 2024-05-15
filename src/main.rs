@@ -1,3 +1,6 @@
+use clap::Parser;
+use dotenv::dotenv;
+use std::net::SocketAddr;
 use tonic::transport::Server;
 use tracing::Level;
 
@@ -6,18 +9,30 @@ use synapse::health::HealthService;
 use synapse::service::hub;
 use synapse::service::ServiceRegistryServer;
 
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Cli {
+    #[clap(long, env = "SERVICE_ADDRESS", default_value = "127.0.0.1:8500")]
+    address: SocketAddr,
+}
+
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();
+    // 加载环境变量
+    dotenv().ok();
+
+    let cli = Cli::parse();
+
     let h = hub::Hub::new();
     let server = HealthServer::new(HealthService {});
     let registry_server = ServiceRegistryServer::new(h);
     Server::builder()
         .add_service(server)
         .add_service(registry_server)
-        .serve("127.0.0.1:8500".parse().unwrap())
+        .serve(cli.address)
         .await
         .unwrap();
 }
@@ -51,7 +66,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_service() {
-        let channel = Channel::from_static("http://127.0.0.1:50051")
+        let channel = Channel::from_static("http://127.0.0.1:8500")
             .connect()
             .await
             .unwrap();
@@ -88,7 +103,7 @@ mod tests {
         let mut client = ServiceRegistryClient::new(channel);
         let response = client
             .query_services(QueryRequest {
-                name: "ws".to_string(),
+                name: "test".to_string(),
             })
             .await
             .unwrap();
