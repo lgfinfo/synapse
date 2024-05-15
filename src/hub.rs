@@ -119,7 +119,7 @@ impl Hub {
                 let result = client.check(req.clone()).await;
 
                 let status = if result.is_ok() {
-                    warn!("health check success: {:?}", instance);
+                    debug!("health check success: {:?}", instance);
                     ServiceStatus::Up
                 } else {
                     warn!("health check failed: {:?}", instance);
@@ -249,6 +249,7 @@ impl ServiceRegistry for Hub {
         }))
     }
 
+    // todo modify return obj to `Service`
     async fn query_services(
         &self,
         request: Request<QueryRequest>,
@@ -266,6 +267,7 @@ impl ServiceRegistry for Hub {
 
     type SubscribeStream = Pin<Box<dyn Stream<Item = Result<Service, Status>> + Send>>;
 
+    // todo could we return multiple streams for multiple subscribe?
     async fn subscribe(
         &self,
         request: Request<SubscribeRequest>,

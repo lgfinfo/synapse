@@ -17,7 +17,7 @@ async fn main() {
     Server::builder()
         .add_service(server)
         .add_service(registry_server)
-        .serve("127.0.0.1:50051".parse().unwrap())
+        .serve("127.0.0.1:8500".parse().unwrap())
         .await
         .unwrap();
 }
@@ -37,7 +37,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_check() {
-        let channel = Channel::from_static("http://127.0.0.1:50051")
+        let channel = Channel::from_static("http://127.0.0.1:8500")
             .connect()
             .await
             .unwrap();
@@ -81,7 +81,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_query() {
-        let channel = Channel::from_static("http://127.0.0.1:50051")
+        let channel = Channel::from_static("http://127.0.0.1:8500")
             .connect()
             .await
             .unwrap();

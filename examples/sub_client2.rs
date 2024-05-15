@@ -1,38 +1,9 @@
-use async_trait::async_trait;
-use futures::Stream;
-use std::pin::Pin;
-use synapse::pb::health_server::{Health, HealthServer};
+use synapse::pb::health_server::HealthServer;
 use synapse::pb::service_registry_client::ServiceRegistryClient;
-use synapse::pb::{
-    HealthCheck, HealthCheckRequest, HealthCheckResponse, ServiceInstance, SubscribeRequest,
-};
+use synapse::pb::{HealthCheck, ServiceInstance, SubscribeRequest};
 use tonic::transport::{Channel, Server};
-use tonic::{Request, Response, Status};
+use tracing::info;
 use tracing::Level;
-use tracing::{debug, info};
-
-pub struct HealthCheckService;
-
-#[async_trait]
-impl Health for HealthCheckService {
-    async fn check(
-        &self,
-        _request: Request<HealthCheckRequest>,
-    ) -> Result<Response<HealthCheckResponse>, Status> {
-        debug!("health check:{:?}", _request);
-        Ok(Response::new(HealthCheckResponse { status: 1 }))
-    }
-
-    type WatchStream =
-        Pin<Box<dyn Stream<Item = Result<HealthCheckResponse, Status>> + Send + 'static>>;
-
-    async fn watch(
-        &self,
-        _request: Request<HealthCheckRequest>,
-    ) -> Result<Response<Self::WatchStream>, Status> {
-        todo!()
-    }
-}
 
 // todo 客户端需要重连机制
 #[tokio::main]
@@ -79,7 +50,7 @@ async fn main() {
             println!("Received update from service 1: {:?}", message);
         }
     });
-    let health = HealthServer::new(HealthCheckService);
+    let health = HealthServer::new(synapse::health_service::HealthService {});
     Server::builder()
         .add_service(health)
         .serve("127.0.0.1:50002".parse().unwrap())
