@@ -1,10 +1,11 @@
-use synapse::health_service::HealthService;
 use tonic::transport::{Channel, Server};
-use tracing::{debug, Level};
+use tracing::debug;
+use tracing::Level;
 
-use synapse::pb::health_server::HealthServer;
-use synapse::pb::service_registry_client::ServiceRegistryClient;
-use synapse::pb::{HealthCheck, Scheme, ServiceInstance, SubscribeRequest};
+use synapse::health::HealthServer;
+use synapse::health::{HealthCheck, HealthService};
+use synapse::service::ServiceRegistryClient;
+use synapse::service::{Scheme, ServiceInstance, SubscribeRequest};
 
 // todo 客户端需要重连机制
 #[tokio::main]

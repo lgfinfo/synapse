@@ -1,4 +1,4 @@
-pub mod health_service;
-pub mod hub;
-pub mod pb;
+pub mod health;
+pub(crate) mod pb;
+pub mod service;
 mod typos;

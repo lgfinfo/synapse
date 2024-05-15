@@ -97,16 +97,16 @@ impl Hub {
         let pool = self.registry_pool.clone();
         let pub_sub = self.broadcaster.clone();
         tokio::spawn(async move {
-            // open health check
+            // open mod check
             let health = instance.health_check.as_ref().unwrap();
             let duration = Duration::from_secs(health.interval as u64);
-            debug!("health check start: {:?}", &instance);
+            debug!("mod check start: {:?}", &instance);
 
             let mut client = match Self::create_health_client(addr, health.timeout).await {
                 Ok(client) => client,
                 Err(err) => {
-                    // service health check configuration error
-                    error!("create health client failed: {:?}", err);
+                    // service mod check configuration error
+                    error!("create mod client failed: {:?}", err);
                     return;
                 }
             };
@@ -119,10 +119,10 @@ impl Hub {
                 let result = client.check(req.clone()).await;
 
                 let status = if result.is_ok() {
-                    debug!("health check success: {:?}", instance);
+                    debug!("mod check success: {:?}", instance);
                     ServiceStatus::Up
                 } else {
-                    warn!("health check failed: {:?}", instance);
+                    warn!("mod check failed: {:?}", instance);
                     ServiceStatus::Down
                 };
 

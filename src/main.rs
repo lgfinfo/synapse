@@ -1,10 +1,10 @@
 use tonic::transport::Server;
 use tracing::Level;
 
-use synapse::health_service::HealthService;
-use synapse::hub;
-use synapse::pb::health_server::HealthServer;
-use synapse::pb::service_registry_server::ServiceRegistryServer;
+use synapse::health::HealthServer;
+use synapse::health::HealthService;
+use synapse::service::hub;
+use synapse::service::ServiceRegistryServer;
 
 #[tokio::main]
 async fn main() {
@@ -27,11 +27,11 @@ mod tests {
     use tonic::server::NamedService;
     use tonic::transport::Channel;
 
-    use synapse::pb::health_client::HealthClient;
-    use synapse::pb::service_registry_client::ServiceRegistryClient;
-    use synapse::pb::service_registry_server::ServiceRegistryServer;
-    use synapse::pb::{HealthCheckRequest, QueryRequest, ServiceInstance};
-    use synapse::pb::{Scheme, ServingStatus};
+    use synapse::health::{HealthCheckRequest, HealthClient};
+    use synapse::service::ServiceRegistryClient;
+    use synapse::service::ServiceRegistryServer;
+    use synapse::service::{QueryRequest, ServiceInstance};
+    use synapse::service::{Scheme, ServingStatus};
 
     use crate::hub::Hub;
 
