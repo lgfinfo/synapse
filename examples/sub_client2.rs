@@ -2,8 +2,8 @@ use synapse::pb::health_server::HealthServer;
 use synapse::pb::service_registry_client::ServiceRegistryClient;
 use synapse::pb::{HealthCheck, Scheme, ServiceInstance, SubscribeRequest};
 use tonic::transport::{Channel, Server};
-use tracing::info;
 use tracing::Level;
+use tracing::{debug, info};
 
 // todo 客户端需要重连机制
 #[tokio::main]
@@ -49,7 +49,7 @@ async fn main() {
             .unwrap()
             .into_inner();
         while let Some(message) = stream.message().await.unwrap() {
-            println!("Received update from service 1: {:?}", message);
+            debug!("Received update from service: {:?}", message);
         }
     });
     let health = HealthServer::new(synapse::health_service::HealthService {});

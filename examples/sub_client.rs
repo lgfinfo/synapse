@@ -1,6 +1,6 @@
 use synapse::health_service::HealthService;
 use tonic::transport::{Channel, Server};
-use tracing::Level;
+use tracing::{debug, Level};
 
 use synapse::pb::health_server::HealthServer;
 use synapse::pb::service_registry_client::ServiceRegistryClient;
@@ -49,7 +49,7 @@ async fn main() {
             .unwrap()
             .into_inner();
         while let Some(message) = stream.message().await.unwrap() {
-            println!("Received update from service 1: {:?}", message);
+            debug!("Received update from service : {:?}", message);
         }
     });
     let health = HealthServer::new(HealthService::new());
