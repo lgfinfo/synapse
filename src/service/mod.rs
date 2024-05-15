@@ -1,3 +1,4 @@
+pub mod client;
 pub mod hub;
 
 pub use crate::pb::{
