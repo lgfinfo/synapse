@@ -32,8 +32,10 @@ async fn main() {
                 interval: 10,
                 timeout: 10,
                 retries: 10,
+                schema: "http".to_string(),
             }),
             status: 0,
+            schema: "http".to_string(),
         })
         .await
         .unwrap();

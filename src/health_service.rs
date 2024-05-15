@@ -9,7 +9,14 @@ use crate::pb::health_server::Health;
 use crate::pb::ServingStatus;
 use crate::pb::{HealthCheckRequest, HealthCheckResponse};
 
-pub struct HealthService {}
+#[derive(Debug, Default)]
+pub struct HealthService;
+
+impl HealthService {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 /// implement grpc health check
 #[async_trait]

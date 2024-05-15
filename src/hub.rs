@@ -163,6 +163,7 @@ impl Hub {
                 address: instance.address,
                 port: instance.port,
                 active: instance.status,
+                schema: instance.schema,
             };
             if let Err(e) = chan.send(Ok(req)) {
                 warn!("broadcast failed: {:?}", e);
@@ -256,12 +257,15 @@ impl ServiceRegistry for Hub {
     ) -> Result<Response<QueryResponse>, Status> {
         let name = request.into_inner().name;
         debug!("query services: {:?}", name);
-        let instances = self
-            .registry_pool
-            .get(&name)
-            .ok_or(Status::not_found("service not found"))?;
+        let instances = match self.registry_pool.get(&name) {
+            None => Vec::new(),
+            Some(ins) => ins
+                .iter()
+                .map(|x| Service::from(x.value().clone()))
+                .collect(),
+        };
         Ok(Response::new(QueryResponse {
-            services: instances.iter().map(|x| x.value().clone()).collect(),
+            services: instances,
         }))
     }
 

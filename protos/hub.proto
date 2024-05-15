@@ -18,6 +18,7 @@ message ServiceInstance{
   repeated string tags = 8;
   optional HealthCheck health_check = 9;
   ServiceStatus status = 10;
+  string schema = 11;
 }
 
 enum ServiceStatus{
@@ -30,6 +31,7 @@ message HealthCheck{
   int32 interval = 2;
   int32 timeout = 3;
   int32 retries = 4;
+  string schema = 5;
 }
 
 // gRPC服务接口定义，用于服务注册、注销和查询
@@ -65,7 +67,7 @@ message QueryRequest {
 
 // 查询响应定义
 message QueryResponse {
-  repeated ServiceInstance services = 1; // 查询结果，返回服务实例列表
+  repeated Service services = 1; // 查询结果，返回服务实例列表
 }
 
 
@@ -75,4 +77,5 @@ message Service{
   string address = 3;
   int32 port = 4;
   ServiceStatus active = 5;
+  string schema = 6;
 }

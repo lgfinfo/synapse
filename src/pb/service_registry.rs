@@ -23,6 +23,8 @@ pub struct ServiceInstance {
     pub health_check: ::core::option::Option<HealthCheck>,
     #[prost(enumeration = "ServiceStatus", tag = "10")]
     pub status: i32,
+    #[prost(string, tag = "11")]
+    pub schema: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -35,6 +37,8 @@ pub struct HealthCheck {
     pub timeout: i32,
     #[prost(int32, tag = "4")]
     pub retries: i32,
+    #[prost(string, tag = "5")]
+    pub schema: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -78,7 +82,7 @@ pub struct QueryRequest {
 pub struct QueryResponse {
     /// 查询结果，返回服务实例列表
     #[prost(message, repeated, tag = "1")]
-    pub services: ::prost::alloc::vec::Vec<ServiceInstance>,
+    pub services: ::prost::alloc::vec::Vec<Service>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -93,6 +97,8 @@ pub struct Service {
     pub port: i32,
     #[prost(enumeration = "ServiceStatus", tag = "5")]
     pub active: i32,
+    #[prost(string, tag = "6")]
+    pub schema: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

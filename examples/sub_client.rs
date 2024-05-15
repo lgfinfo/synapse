@@ -1,3 +1,4 @@
+use synapse::health_service::HealthService;
 use tonic::transport::{Channel, Server};
 use tracing::Level;
 
@@ -32,8 +33,10 @@ async fn main() {
                 interval: 10,
                 timeout: 10,
                 retries: 10,
+                schema: "https".to_string(),
             }),
             status: 0,
+            schema: "https".to_string(),
         })
         .await
         .unwrap();
@@ -49,7 +52,7 @@ async fn main() {
             println!("Received update from service 1: {:?}", message);
         }
     });
-    let health = HealthServer::new(synapse::health_service::HealthService {});
+    let health = HealthServer::new(HealthService::new());
     Server::builder()
         .add_service(health)
         .serve("127.0.0.1:50001".parse().unwrap())

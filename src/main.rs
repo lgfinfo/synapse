@@ -67,6 +67,7 @@ mod tests {
             tags: vec![],
             health_check: None,
             status: 0,
+            schema: "https".to_string(),
         };
         client.register_service(req).await.unwrap();
         let response = client
@@ -114,6 +115,7 @@ mod tests {
             tags: vec![],
             health_check: None,
             status: 0,
+            schema: "http".to_string(),
         };
         client.register_service(req).await.unwrap();
     }
