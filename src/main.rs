@@ -103,7 +103,7 @@ mod tests {
         let mut client = ServiceRegistryClient::new(channel);
         let response = client
             .query_services(QueryRequest {
-                name: "pusher".to_string(),
+                name: "ws".to_string(),
             })
             .await
             .unwrap();

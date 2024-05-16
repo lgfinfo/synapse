@@ -114,13 +114,13 @@ impl Hub {
             // open mod check
             let health = instance.health_check.as_ref().unwrap();
             let duration = Duration::from_secs(health.interval as u64);
-            debug!("mod check start: {:?}", &instance);
+            debug!("health check start: {:?}", &instance);
 
             let mut client = match Self::create_health_client(addr, health.timeout).await {
                 Ok(client) => client,
                 Err(err) => {
                     // service mod check configuration error
-                    error!("create mod client failed: {:?}", err);
+                    error!("create client failed: {:?}", err);
                     return;
                 }
             };
@@ -133,10 +133,10 @@ impl Hub {
                 let result = client.check(req.clone()).await;
 
                 let status = if result.is_ok() {
-                    debug!("mod check success: {:?}", instance);
+                    debug!("healt check success: {:?}", instance);
                     ServiceStatus::Up
                 } else {
-                    warn!("mod check failed: {:?}", instance);
+                    warn!("healt check failed: {:?}", instance);
                     ServiceStatus::Down
                 };
 
@@ -163,6 +163,7 @@ impl Hub {
 
         Ok(client)
     }
+
     pub async fn broadcast(&self, instance: ServiceInstance) {
         // broadcast to all subscribers
         Self::broadcast_(instance, &self.broadcaster).await;
