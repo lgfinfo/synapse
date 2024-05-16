@@ -3,6 +3,9 @@ name = "synapse"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+docker = []
+
 [dependencies]
 axum = "0.7"
 dashmap = "5"

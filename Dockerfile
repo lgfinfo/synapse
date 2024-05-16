@@ -14,7 +14,7 @@ COPY . .
 ENV PROTOC=/usr/bin/protoc
 
 # 构建 Rust 应用的 release 版本
-RUN cargo build --release
+RUN cargo build --release --features=docker
 
 # 设置默认的环境变量
 ENV SERVICE_ADDRESS=127.0.0.1:8500

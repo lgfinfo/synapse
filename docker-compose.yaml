@@ -1,14 +1,15 @@
 services:
-  rustapp:
+  synapse:
     image: synapse:latest
-    container_name: rustapp-container
+    container_name: synapse
     ports:
       - "8500:8500"
     environment:
       - SERVICE_ADDRESS=0.0.0.0:8500
     volumes:
-      - ./data:/app/data  # 假设你的应用需要一个挂载的数据卷
-
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 # 如果你希望docker-compose自动构建镜像，可以使用下面的配置
 # 注意：你需要有一个Dockerfile在你的上下文目录中。
 # build:

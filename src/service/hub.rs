@@ -93,7 +93,21 @@ impl Hub {
     }
 
     pub fn health_check(&self, mut instance: ServiceInstance) {
-        let addr = format!("http://{}:{}", &instance.address, &instance.port);
+        let addr = if cfg!(feature = "docker") && instance.address == "127.0.0.1" {
+            format!(
+                "{}://{}:{}",
+                instance.scheme(),
+                "host.docker.internal",
+                instance.port
+            )
+        } else {
+            format!(
+                "{}://{}:{}",
+                instance.scheme(),
+                &instance.address,
+                instance.port
+            )
+        };
         let pool = self.registry_pool.clone();
         let pub_sub = self.broadcaster.clone();
         tokio::spawn(async move {

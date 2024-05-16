@@ -13,7 +13,7 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();
-    let channel = Channel::from_static("http://127.0.0.1:50051")
+    let channel = Channel::from_static("http://127.0.0.1:8500")
         .connect()
         .await
         .unwrap();
