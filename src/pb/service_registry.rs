@@ -326,6 +326,31 @@ pub mod service_registry_client {
             ));
             self.inner.server_streaming(req, path, codec).await
         }
+        /// 订阅服务实例，与Subscribe不同的是，在订阅的同时，会返回订阅的所有服务实例
+        pub async fn subscribe_to_service(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SubscribeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::Service>>,
+            tonic::Status,
+        > {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::new(
+                    tonic::Code::Unknown,
+                    format!("Service was not ready: {}", e.into()),
+                )
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/service_registry.ServiceRegistry/SubscribeToService",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new(
+                "service_registry.ServiceRegistry",
+                "SubscribeToService",
+            ));
+            self.inner.server_streaming(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -359,6 +384,16 @@ pub mod service_registry_server {
             &self,
             request: tonic::Request<super::SubscribeRequest>,
         ) -> std::result::Result<tonic::Response<Self::SubscribeStream>, tonic::Status>;
+        /// Server streaming response type for the SubscribeToService method.
+        type SubscribeToServiceStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::Service, tonic::Status>,
+            > + Send
+            + 'static;
+        /// 订阅服务实例，与Subscribe不同的是，在订阅的同时，会返回订阅的所有服务实例
+        async fn subscribe_to_service(
+            &self,
+            request: tonic::Request<super::SubscribeRequest>,
+        ) -> std::result::Result<tonic::Response<Self::SubscribeToServiceStream>, tonic::Status>;
     }
     /// gRPC服务接口定义，用于服务注册、注销和查询
     #[derive(Debug)]
@@ -592,6 +627,51 @@ pub mod service_registry_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = SubscribeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/service_registry.ServiceRegistry/SubscribeToService" => {
+                    #[allow(non_camel_case_types)]
+                    struct SubscribeToServiceSvc<T: ServiceRegistry>(pub Arc<T>);
+                    impl<T: ServiceRegistry>
+                        tonic::server::ServerStreamingService<super::SubscribeRequest>
+                        for SubscribeToServiceSvc<T>
+                    {
+                        type Response = super::Service;
+                        type ResponseStream = T::SubscribeToServiceStream;
+                        type Future =
+                            BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SubscribeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ServiceRegistry>::subscribe_to_service(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = SubscribeToServiceSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
