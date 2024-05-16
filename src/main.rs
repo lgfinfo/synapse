@@ -20,6 +20,7 @@ struct Cli {
 async fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
+        .with_line_number(true)
         .init();
     // 加载环境变量
     dotenv().ok();
@@ -72,8 +73,8 @@ mod tests {
             .unwrap();
         let mut client = ServiceRegistryClient::new(channel);
         let req = ServiceInstance {
-            id: "test12321321".to_string(),
-            name: "test".to_string(),
+            id: "test1342321321".to_string(),
+            name: "ws".to_string(),
             address: "127.0.0.1".to_string(),
             port: 8080,
             version: "".to_string(),

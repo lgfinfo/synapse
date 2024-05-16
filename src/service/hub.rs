@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use futures::{Stream, StreamExt};
 use tokio::sync::broadcast;
@@ -151,6 +150,7 @@ impl Hub {
             }
         });
     }
+
     async fn create_health_client(
         addr: String,
         timeout: i32,
@@ -183,6 +183,16 @@ impl Hub {
             if let Err(e) = chan.send(Ok(req)) {
                 warn!("broadcast failed: {:?}", e);
             }
+        }
+    }
+
+    pub fn query_by_name(&self, name: &str) -> Vec<Service> {
+        match self.registry_pool.get(name) {
+            None => Vec::new(),
+            Some(ins) => ins
+                .iter()
+                .map(|x| Service::from(x.value().clone()))
+                .collect(),
         }
     }
 }
@@ -265,20 +275,13 @@ impl ServiceRegistry for Hub {
         }))
     }
 
-    // todo modify return obj to `Service`
     async fn query_services(
         &self,
         request: Request<QueryRequest>,
     ) -> Result<Response<QueryResponse>, Status> {
         let name = request.into_inner().name;
         debug!("query services: {:?}", name);
-        let instances = match self.registry_pool.get(&name) {
-            None => Vec::new(),
-            Some(ins) => ins
-                .iter()
-                .map(|x| Service::from(x.value().clone()))
-                .collect(),
-        };
+        let instances = self.query_by_name(&name);
         Ok(Response::new(QueryResponse {
             services: instances,
         }))
@@ -293,14 +296,48 @@ impl ServiceRegistry for Hub {
     ) -> Result<Response<Self::SubscribeStream>, Status> {
         let name = request.into_inner().service;
         debug!("subscribe: {:?}", name);
-        let rx = match self.broadcaster.entry(name) {
-            Entry::Occupied(res) => res.get().subscribe(),
-            Entry::Vacant(entry) => {
-                let (tx, rx) = broadcast::channel(100);
-                entry.insert(tx);
-                rx
+        let rx = self
+            .broadcaster
+            .entry(name)
+            .or_insert_with(|| {
+                let (tx, _) = broadcast::channel(256);
+                tx
+            })
+            .subscribe();
+
+        let stream = BroadcastStream::new(rx).map(|message_result| {
+            message_result.unwrap_or_else(|recv_error| {
+                // 如果是Err，则将BroadcastStream的错误转换成gRPC的错误
+                Err(Status::internal(format!(
+                    "Broadcast error: {:?}",
+                    recv_error
+                )))
+            })
+        });
+        Ok(Response::new(Box::pin(stream)))
+    }
+
+    type SubscribeToServiceStream = Pin<Box<dyn Stream<Item = Result<Service, Status>> + Send>>;
+
+    async fn subscribe_to_service(
+        &self,
+        request: Request<SubscribeRequest>,
+    ) -> Result<Response<Self::SubscribeToServiceStream>, Status> {
+        let name = request.into_inner().service;
+        debug!("subscribe: {:?}", name);
+        let tx = self.broadcaster.entry(name.clone()).or_insert_with(|| {
+            let (tx, _) = broadcast::channel(256);
+            tx
+        });
+
+        let rx = tx.subscribe();
+        let services = self.query_by_name(&name);
+        debug!("query_by_name: {:?}", services);
+        for service in services {
+            if let Err(e) = tx.send(Ok(service)) {
+                error!("Failed to send service to subscriber: {}", e);
             }
-        };
+        }
 
         let stream = BroadcastStream::new(rx).map(|message_result| {
             message_result.unwrap_or_else(|recv_error| {

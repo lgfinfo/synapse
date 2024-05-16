@@ -42,11 +42,14 @@ service ServiceRegistry {
   // 查询服务实例
   rpc QueryServices(QueryRequest) returns (QueryResponse);
   rpc Subscribe(SubscribeRequest) returns (stream Service);
+  // 订阅服务实例，与Subscribe不同的是，在订阅的同时，会返回订阅的所有服务实例
+  rpc SubscribeToService(SubscribeRequest) returns (stream Service);
 }
 
 message SubscribeRequest{
   string service = 1;
 }
+
 // 操作状态定义
 message OperationStatus {
   bool success = 1; // 操作是否成功
@@ -68,7 +71,6 @@ message QueryRequest {
 message QueryResponse {
   repeated Service services = 1; // 查询结果，返回服务实例列表
 }
-
 
 message Service{
   string id = 1;

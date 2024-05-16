@@ -1,9 +1,9 @@
 use tonic::transport::{Channel, Server};
+use tracing::info;
 use tracing::Level;
-use tracing::{debug, info};
 
 use synapse::health::HealthServer;
-use synapse::health::{HealthCheck, HealthService};
+use synapse::health::HealthService;
 use synapse::service::ServiceRegistryClient;
 use synapse::service::{Scheme, ServiceInstance, SubscribeRequest};
 
@@ -13,7 +13,7 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();
-    let channel = Channel::from_static("http://127.0.0.1:50051")
+    let channel = Channel::from_static("http://127.0.0.1:8500")
         .connect()
         .await
         .unwrap();
@@ -28,14 +28,14 @@ async fn main() {
             version: "".to_string(),
             metadata: Default::default(),
             tags: vec![],
-            health_check: Some(HealthCheck {
+            health_check: /* Some(HealthCheck {
                 endpoint: "".to_string(),
                 interval: 10,
                 timeout: 10,
                 retries: 10,
                 scheme: Scheme::Http as i32,
                 tls_domain: None,
-            }),
+            }) */None,
             status: 0,
             scheme: Scheme::Http as i32,
         })
@@ -44,14 +44,14 @@ async fn main() {
     info!("register result: {:?}", result);
     tokio::spawn(async move {
         let mut stream = client
-            .subscribe(SubscribeRequest {
+            .subscribe_to_service(SubscribeRequest {
                 service: "ws".to_string(),
             })
             .await
             .unwrap()
             .into_inner();
         while let Some(message) = stream.message().await.unwrap() {
-            debug!("Received update from service: {:?}", message);
+            info!("Received update from service: {:?}", message);
         }
     });
     let health = HealthServer::new(HealthService::new());
