@@ -113,7 +113,7 @@ impl ServiceClient {
         debug!("Subscribe to service: {}", name);
 
         let mut client = self.client.clone();
-        let (tx, rx) = tokio::sync::mpsc::channel(64);
+        let (tx, rx) = tokio::sync::mpsc::channel(256);
 
         let connect_timeout = self.connect_timeout.unwrap_or(Duration::from_secs(5));
         // spawn a task to subscribe to the service

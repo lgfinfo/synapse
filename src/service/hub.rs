@@ -300,18 +300,10 @@ impl ServiceRegistry for Hub {
             .broadcaster
             .entry(name)
             .or_insert_with(|| {
-                let (tx, _) = broadcast::channel(100);
+                let (tx, _) = broadcast::channel(256);
                 tx
             })
             .subscribe();
-        /* match self.broadcaster.entry(name) {
-            Entry::Occupied(res) => res.get().subscribe(),
-            Entry::Vacant(entry) => {
-                let (tx, rx) = broadcast::channel(100);
-                entry.insert(tx);
-                rx
-            }
-        }; */
 
         let stream = BroadcastStream::new(rx).map(|message_result| {
             message_result.unwrap_or_else(|recv_error| {
@@ -334,7 +326,7 @@ impl ServiceRegistry for Hub {
         let name = request.into_inner().service;
         debug!("subscribe: {:?}", name);
         let tx = self.broadcaster.entry(name.clone()).or_insert_with(|| {
-            let (tx, _) = broadcast::channel(100);
+            let (tx, _) = broadcast::channel(256);
             tx
         });
 
