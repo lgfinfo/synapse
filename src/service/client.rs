@@ -1,5 +1,6 @@
 use std::time::Duration;
 use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::Sender;
 use tokio::time;
 use tonic::transport::{Channel, ClientTlsConfig, Endpoint};
 use tonic::Status;
@@ -174,6 +175,61 @@ impl ServiceClient {
         Ok(rx)
     }
 
+    pub async fn sub_to_service(
+        &mut self,
+        name: impl Into<String> + Send + 'static,
+    ) -> Result<Receiver<Service>, Box<dyn std::error::Error>> {
+        let name = name.into();
+        debug!("Subscribe to service: {}", name);
+
+        let (tx, rx) = tokio::sync::mpsc::channel(256);
+
+        // spawn a task to subscribe to the service
+        self.handle_service(tx, name).await;
+        Ok(rx)
+    }
+
+    async fn handle_service(&self, tx: Sender<Service>, name: String) {
+        let connect_timeout = self.connect_timeout.unwrap_or(Duration::from_secs(5));
+        let mut client = self.client.clone();
+
+        tokio::spawn(async move {
+            let max_retries = 5;
+            let mut retries = 0;
+            loop {
+                // subscribe to the service
+                let req = SubscribeRequest::new(name.clone());
+                let mut stream = match client.subscribe_to_service(req).await {
+                    Ok(stream) => {
+                        retries = 0;
+                        stream.into_inner()
+                    }
+                    Err(e) => {
+                        error!("Failed to subscribe to service: {}", e);
+                        if retries < max_retries {
+                            debug!("Attempting to reconnect... Attempt: {}", retries + 1);
+                            time::sleep(connect_timeout).await;
+                            retries += 1;
+                            continue;
+                        } else {
+                            error!("Maximum retry attempts reached, giving up.");
+                            // exit the task, and it will close the channel
+                            return;
+                        }
+                    }
+                };
+
+                // 请求消息并处理错误
+                while let Ok(Some(res)) = stream.message().await {
+                    debug!("GOT = {:?}", res);
+                    if let Err(e) = tx.send(res).await {
+                        error!("Failed to send service to channel: {}", e);
+                        break;
+                    }
+                }
+            }
+        });
+    }
     pub async fn register(
         &mut self,
         instance: ServiceInstance,
