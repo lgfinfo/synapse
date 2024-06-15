@@ -12,7 +12,7 @@ RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y curl gcc unzip && \
     curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOC_VERSION/protoc-$PROTOC_VERSION-linux-x86_64.zip && \
-    unzip -o protoc-$PROTOC_VERSION-linux-x86_64.zip -d /usr/local bin/protoc && \
+    unzip -o protoc-$PROTOC_VERSION-linux-x86_64.zip -d /usr/local/bin/protoc && \
     rm protoc-$PROTOC_VERSION-linux-x86_64.zip && \
     apt-get purge --autoremove -y unzip && \
     apt-get clean && \
